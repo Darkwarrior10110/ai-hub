@@ -6,6 +6,7 @@ import {
   type ProviderId,
   type ManagedApplication,
   type RuntimeSettings,
+  type DiscoverySnapshot,
 } from '../services/gateway';
 
 interface UIState {
@@ -19,6 +20,9 @@ interface UIState {
   toggleSidebar: () => void;
   managedApps: Record<ProviderId, ManagedApplication>;
   runtimeSettings: RuntimeSettings;
+  discoverySnapshot: DiscoverySnapshot | null;
+  isScanning: boolean;
+  scanApplications: () => Promise<void>;
   launchProvider: (id: ProviderId) => Promise<void>;
   stopProvider: (id: ProviderId) => Promise<void>;
   switchProvider: (id: ProviderId) => Promise<void>;
@@ -53,6 +57,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [selectedProvider, setSelectedProviderState] = useState<ProviderId>('chatgpt');
   const [managedApps, setManagedApps] = useState<Record<ProviderId, ManagedApplication>>(initialManagedApps);
   const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettings>(initialRuntimeSettings);
+  const [discoverySnapshot, setDiscoverySnapshot] = useState<DiscoverySnapshot | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   const refreshProviderStates = useCallback(async () => {
     try {
@@ -84,9 +90,24 @@ export function UIProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    refreshProviderStates();
+  const scanApplications = useCallback(async () => {
+    setIsScanning(true);
+    try {
+      const snapshot = await gatewayService.discoverAllProviders();
+      setDiscoverySnapshot(snapshot);
+      await refreshProviderStates();
+    } catch {
+      // Non-blocking discovery fallback
+    } finally {
+      setIsScanning(false);
+    }
   }, [refreshProviderStates]);
+
+  useEffect(() => {
+    refreshProviderStates().then(() => {
+      scanApplications();
+    });
+  }, [refreshProviderStates, scanApplications]);
 
   const setSelectedProvider = useCallback((p: ProviderId) => {
     setSelectedProviderState(p);
@@ -159,6 +180,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
         toggleSidebar,
         managedApps,
         runtimeSettings,
+        discoverySnapshot,
+        isScanning,
+        scanApplications,
         launchProvider,
         stopProvider,
         switchProvider,
@@ -171,6 +195,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useUI() {
   const ctx = useContext(UIContext);
   if (!ctx) throw new Error('useUI must be used within UIProvider');

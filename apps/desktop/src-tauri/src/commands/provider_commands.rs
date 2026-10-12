@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        discovery::InstalledApplication,
+        discovery::{DiscoverySnapshot, InstalledApplication},
         error::RuntimeError,
         lifecycle::ManagedApplication,
         provider::{ProviderDefinition, ProviderId},
@@ -75,6 +75,13 @@ pub fn discover_provider(
         .parse()
         .map_err(|e: RuntimeError| e.to_string())?;
     manager.discover_provider(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn discover_all_providers(
+    manager: State<Arc<AppLifecycleManager>>,
+) -> Result<DiscoverySnapshot, String> {
+    manager.discover_all_providers().map_err(|e| e.to_string())
 }
 
 #[tauri::command]

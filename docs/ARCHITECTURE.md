@@ -92,11 +92,17 @@ To prevent terminating unrelated software, AI-Hub distinguishes:
 
 ## 5. Platform Runtime Implementations
 
-### Linux Runtime (`apps/desktop/src-tauri/src/runtime/linux.rs`)
+### Linux Runtime (`apps/desktop/src-tauri/src/runtime/linux.rs` & `snap.rs`)
 - **Discovery Strategy**:
-  1. **Snap Packages**: Inspects `/snap/bin/` and `/var/lib/snapd/desktop/applications/`.
-  2. **Desktop Entries**: Inspects `/usr/share/applications/`, `/usr/local/share/applications/`, and `~/.local/share/applications/`.
-  3. **Executables**: Direct validated filesystem checks.
+  1. **Snap Engine (`snap.rs`)**:
+     - Locates `/usr/bin/snap` or scans `$PATH` deterministically without shell invocation.
+     - Runs bounded query (`snap list --color=never --unicode=never`) with strict 5-second timeout and process cleanup on timeout.
+     - Pure parser handles header detection, variable spacing, notes (`-` vs text), and publisher verification flags (`canonical**`).
+     - Rejects false matches with a generic-naming guard (words like `ai`, `chat`, `assistant`, `desktop` alone never match).
+     - Reports 5 discrete states: `Confirmed`, `Ambiguous`, `NotInstalled`, `Unavailable`, `Failed`.
+     - Strictly decouples installation discovery from runtime process state (discovered packages are never set to `Running`).
+  2. **Desktop Entries**: Will inspect system and user `.desktop` files in Milestone 6.
+  3. **Executables**: Direct validated filesystem checks in `/snap/bin/` fallback.
 - **Process Verification**: Non-intrusive existence checks via `/proc/<PID>`.
 
 ### Windows Runtime (`apps/desktop/src-tauri/src/runtime/windows.rs`)

@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        discovery::InstalledApplication,
+        discovery::{DiscoverySnapshot, DiscoveryStatus, InstalledApplication},
         error::RuntimeError,
         lifecycle::{ApplicationLifecycleState, ManagedApplication},
         provider::{ProviderDefinition, ProviderId},
@@ -159,6 +159,47 @@ impl AppLifecycleManager {
         }
 
         Ok(app)
+    }
+
+    pub fn discover_all_providers(&self) -> Result<DiscoverySnapshot, RuntimeError> {
+        let providers = self.registry.list();
+        let snapshot = self.runtime.discover_all_applications(&providers)?;
+
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        let mut apps = self.managed_apps.write().map_err(|e| {
+            RuntimeError::Internal(format!("Failed to acquire write lock on managed apps: {e}"))
+        })?;
+
+        for res in &snapshot.results {
+            if let Some(managed) = apps.get_mut(&res.provider_id) {
+                match res.status {
+                    DiscoveryStatus::Confirmed => {
+                        managed.lifecycle_state = ApplicationLifecycleState::Installed;
+                        managed.last_state_change_ms = now_ms;
+                        managed.error_message = None;
+                    }
+                    DiscoveryStatus::NotInstalled => {
+                        managed.lifecycle_state = ApplicationLifecycleState::NotInstalled;
+                        managed.last_state_change_ms = now_ms;
+                        managed.error_message = None;
+                    }
+                    DiscoveryStatus::Ambiguous => {
+                        managed.lifecycle_state = ApplicationLifecycleState::Unknown;
+                        managed.last_state_change_ms = now_ms;
+                        managed.error_message = res.details.clone();
+                    }
+                    DiscoveryStatus::Unavailable | DiscoveryStatus::Failed => {
+                        managed.error_message = res.details.clone();
+                    }
+                }
+            }
+        }
+
+        Ok(snapshot)
     }
 
     pub fn launch_provider(&self, id: ProviderId) -> Result<ManagedApplication, RuntimeError> {

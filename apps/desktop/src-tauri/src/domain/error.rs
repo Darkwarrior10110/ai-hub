@@ -16,6 +16,10 @@ pub enum RuntimeError {
     ProcessOwnershipUnknown(String),
     PlatformNotSupported(String),
     OperationInProgress(String),
+    DiscoveryUnavailable(String),
+    DiscoveryFailed(String),
+    DiscoveryTimeout(String),
+    InvalidMetadata(String),
     NotImplemented(String),
     Internal(String),
 }
@@ -35,6 +39,10 @@ impl fmt::Display for RuntimeError {
             Self::ProcessOwnershipUnknown(msg) => write!(f, "Process ownership unknown: {msg}"),
             Self::PlatformNotSupported(msg) => write!(f, "Platform not supported: {msg}"),
             Self::OperationInProgress(msg) => write!(f, "Operation in progress: {msg}"),
+            Self::DiscoveryUnavailable(msg) => write!(f, "Discovery unavailable: {msg}"),
+            Self::DiscoveryFailed(msg) => write!(f, "Discovery failed: {msg}"),
+            Self::DiscoveryTimeout(msg) => write!(f, "Discovery timed out: {msg}"),
+            Self::InvalidMetadata(msg) => write!(f, "Invalid metadata: {msg}"),
             Self::NotImplemented(msg) => write!(f, "Not implemented: {msg}"),
             Self::Internal(msg) => write!(f, "Internal error: {msg}"),
         }

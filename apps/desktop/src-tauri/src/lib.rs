@@ -35,6 +35,7 @@ pub fn run() {
             commands::get_runtime_settings,
             commands::update_runtime_settings,
             commands::discover_provider,
+            commands::discover_all_providers,
             commands::launch_provider,
             commands::stop_provider,
             commands::switch_provider,

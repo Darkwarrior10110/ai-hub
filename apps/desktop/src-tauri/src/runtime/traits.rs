@@ -1,5 +1,7 @@
 use crate::domain::{
-    discovery::InstalledApplication, error::RuntimeError, lifecycle::ProcessIdentity,
+    discovery::{DiscoverySnapshot, InstalledApplication},
+    error::RuntimeError,
+    lifecycle::ProcessIdentity,
     provider::ProviderDefinition,
 };
 
@@ -10,6 +12,11 @@ pub trait RuntimePlatform: Send + Sync {
         &self,
         provider: &ProviderDefinition,
     ) -> Result<Option<InstalledApplication>, RuntimeError>;
+
+    fn discover_all_applications(
+        &self,
+        providers: &[ProviderDefinition],
+    ) -> Result<DiscoverySnapshot, RuntimeError>;
 
     fn is_process_running(&self, process: &ProcessIdentity) -> Result<bool, RuntimeError>;
 

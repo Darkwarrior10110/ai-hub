@@ -22,15 +22,17 @@ export function GatewayDashboard() {
     setSelectedProvider,
     managedApps,
     runtimeSettings,
+    discoverySnapshot,
+    isScanning,
+    scanApplications,
     launchProvider,
     stopProvider,
-    refreshProviderStates,
   } = useUI();
 
   const providerMeta = PROVIDERS.find(p => p.id === selectedProvider) || PROVIDERS[0];
   const appState = managedApps[selectedProvider];
+  const discoveryResult = discoverySnapshot?.results.find(r => r.provider_id === selectedProvider);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleLaunch = async () => {
     setActionError(null);
@@ -50,17 +52,13 @@ export function GatewayDashboard() {
     }
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const handleScan = async () => {
     setActionError(null);
-    try {
-      await refreshProviderStates();
-    } finally {
-      setIsRefreshing(false);
-    }
+    await scanApplications();
   };
 
-  const isInstalled = appState?.lifecycle_state === 'installed' || appState?.lifecycle_state === 'ready';
+  const isConfirmed = discoveryResult?.status === 'confirmed';
+  const isInstalled = appState?.lifecycle_state === 'installed' || isConfirmed;
   const isRunning = appState?.lifecycle_state === 'running';
 
   return (
@@ -74,19 +72,42 @@ export function GatewayDashboard() {
           <div className="header-title-row">
             <h1 className="header-provider-name">{providerMeta.name}</h1>
             <span className="vendor-tag">{providerMeta.description}</span>
+            {discoveryResult?.version && (
+              <span className="vendor-tag" title={`Package version: ${discoveryResult.version}`}>
+                v{discoveryResult.version}
+              </span>
+            )}
           </div>
           <div className="header-status-row">
-            <span className={`status-pill ${appState?.lifecycle_state || 'unknown'}`}>
-              <span className="status-indicator-dot" />
-              {appState?.lifecycle_state === 'installed' && 'Installed (Ready)'}
-              {appState?.lifecycle_state === 'not_installed' && 'Not Installed'}
-              {appState?.lifecycle_state === 'running' && 'Running'}
-              {appState?.lifecycle_state === 'starting' && 'Starting…'}
-              {appState?.lifecycle_state === 'stopping' && 'Stopping…'}
-              {appState?.lifecycle_state === 'switching' && 'Switching…'}
-              {appState?.lifecycle_state === 'unknown' && 'Detecting…'}
-              {appState?.lifecycle_state === 'error' && 'Error'}
-            </span>
+            {discoveryResult?.status === 'confirmed' ? (
+              <span className="status-pill installed">
+                <span className="status-indicator-dot" />
+                Detected (Snap)
+              </span>
+            ) : discoveryResult?.status === 'ambiguous' ? (
+              <span className="status-pill ambiguous" title={discoveryResult.details || undefined}>
+                <span className="status-indicator-dot" />
+                Needs Review
+              </span>
+            ) : discoveryResult?.status === 'unavailable' ? (
+              <span className="status-pill unavailable" title="Snap tooling unavailable">
+                <span className="status-indicator-dot" />
+                Snap Unavailable
+              </span>
+            ) : (
+              <span className="status-pill not_installed">
+                <span className="status-indicator-dot" />
+                Not Installed
+              </span>
+            )}
+
+            {isRunning && (
+              <span className="status-pill running">
+                <span className="status-indicator-dot" />
+                Running
+              </span>
+            )}
+
             {runtimeSettings.resource_saver_mode && (
               <span className="resource-saver-pill" title="Keeps only one AI application running to protect low-RAM systems">
                 <ShieldCheck size={13} />
@@ -99,12 +120,12 @@ export function GatewayDashboard() {
         <div className="header-actions">
           <button
             className="refresh-btn"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            title="Scan installed applications"
+            onClick={handleScan}
+            disabled={isScanning}
+            title={discoverySnapshot ? `Scanned ${discoverySnapshot.total_packages_scanned} packages` : 'Scan installed applications'}
           >
-            <RefreshCw size={15} className={isRefreshing ? 'spinning' : ''} />
-            <span>Scan System</span>
+            <RefreshCw size={15} className={isScanning ? 'spinning' : ''} />
+            <span>{isScanning ? 'Scanning…' : 'Scan System'}</span>
           </button>
         </div>
       </header>
@@ -139,23 +160,48 @@ export function GatewayDashboard() {
             <div className="hero-actions">
               {isInstalled ? (
                 <>
-                  <button
-                    className="launch-btn primary"
-                    onClick={handleLaunch}
-                    style={{ backgroundColor: providerMeta.color }}
-                  >
-                    <Play size={16} fill="currentColor" />
-                    <span>Launch {providerMeta.name}</span>
-                  </button>
-                  <button
-                    className="stop-btn secondary"
-                    onClick={handleStop}
-                    disabled={!isRunning}
-                  >
-                    <Square size={15} />
-                    <span>Stop Process</span>
-                  </button>
+                  <div className="discovery-meta-row">
+                    <span className="discovery-meta-badge">
+                      Package: <strong>{discoveryResult?.matched_package || providerMeta.id}</strong>
+                    </span>
+                    {discoveryResult?.version && (
+                      <span className="discovery-meta-badge">
+                        Version: <strong>{discoveryResult.version}</strong>
+                      </span>
+                    )}
+                    <span className="discovery-meta-badge">
+                      Source: <strong>{discoveryResult?.source || 'Snap Package'}</strong>
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                    <button
+                      className="launch-btn primary"
+                      onClick={handleLaunch}
+                      style={{ backgroundColor: providerMeta.color }}
+                    >
+                      <Play size={16} fill="currentColor" />
+                      <span>Launch {providerMeta.name}</span>
+                    </button>
+                    <button
+                      className="stop-btn secondary"
+                      onClick={handleStop}
+                      disabled={!isRunning}
+                    >
+                      <Square size={15} />
+                      <span>Stop Process</span>
+                    </button>
+                  </div>
+                  <p className="milestone-notice">
+                    ✓ Discovery Verified: Application detected on host. Native process launch coordination will be connected in Milestone 3.
+                  </p>
                 </>
+              ) : discoveryResult?.status === 'ambiguous' ? (
+                <div className="not-installed-box">
+                  <AlertCircle size={16} />
+                  <span>
+                    Ambiguous match found for {providerMeta.name}: {discoveryResult.matched_package}. {discoveryResult.details}
+                  </span>
+                </div>
               ) : (
                 <div className="not-installed-box">
                   <Info size={16} />
@@ -217,8 +263,7 @@ export function GatewayDashboard() {
 
           <div className="fleet-grid">
             {PROVIDERS.map((p) => {
-              const state = managedApps[p.id];
-              const installed = state?.lifecycle_state === 'installed' || state?.lifecycle_state === 'ready';
+              const disc = discoverySnapshot?.results.find((r) => r.provider_id === p.id);
               const isSelected = selectedProvider === p.id;
 
               return (
@@ -240,13 +285,25 @@ export function GatewayDashboard() {
                     </div>
                     <div className="fleet-name-wrap">
                       <span className="fleet-name">{p.name}</span>
-                      <span className="fleet-vendor">{p.description}</span>
+                      <span className="fleet-vendor">
+                        {disc?.version ? `v${disc.version} • Snap` : p.description}
+                      </span>
                     </div>
                     <div className="fleet-badge-wrap">
-                      {installed ? (
-                        <span className="fleet-installed-tag" title="Installed on system">
+                      {disc?.status === 'confirmed' ? (
+                        <span className="fleet-installed-tag" title={`Confirmed Snap: ${disc.matched_package}`}>
                           <CheckCircle2 size={13} />
                           <span>Detected</span>
+                        </span>
+                      ) : disc?.status === 'ambiguous' ? (
+                        <span className="fleet-ambiguous-tag" title={disc.details || 'Ambiguous package name'}>
+                          <AlertCircle size={13} />
+                          <span>Needs Review</span>
+                        </span>
+                      ) : disc?.status === 'unavailable' ? (
+                        <span className="fleet-unavailable-tag" title="Snap tooling unavailable">
+                          <Info size={13} />
+                          <span>Unavailable</span>
                         </span>
                       ) : (
                         <span className="fleet-missing-tag" title="Not found on system">

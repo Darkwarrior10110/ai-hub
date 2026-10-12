@@ -100,6 +100,14 @@
   background: #94a3b8;
 }
 
+.status-pill.ambiguous .status-indicator-dot {
+  background: #eab308;
+}
+
+.status-pill.unavailable .status-indicator-dot {
+  background: #ef4444;
+}
+
 .status-pill.error .status-indicator-dot {
   background: #ef4444;
 }
@@ -475,4 +483,58 @@
   background: var(--bg-tertiary);
   padding: 3px 8px;
   border-radius: 6px;
+}
+
+.fleet-ambiguous-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #eab308;
+  background: rgba(234, 179, 8, 0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.fleet-unavailable-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.discovery-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.discovery-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.discovery-meta-badge strong {
+  color: var(--text-primary);
+}
+
+.milestone-notice {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  line-height: 1.4;
 }

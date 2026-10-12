@@ -1,4 +1,5 @@
 pub mod linux;
+pub mod snap;
 pub mod traits;
 pub mod windows;
 

@@ -1,6 +1,8 @@
 use super::traits::RuntimePlatform;
 use crate::domain::{
-    discovery::InstalledApplication, error::RuntimeError, lifecycle::ProcessIdentity,
+    discovery::{DiscoverySnapshot, InstalledApplication},
+    error::RuntimeError,
+    lifecycle::ProcessIdentity,
     provider::ProviderDefinition,
 };
 
@@ -16,6 +18,28 @@ impl WindowsRuntime {
 impl RuntimePlatform for WindowsRuntime {
     fn name(&self) -> &'static str {
         "windows"
+    }
+
+    fn discover_all_applications(
+        &self,
+        _providers: &[ProviderDefinition],
+    ) -> Result<DiscoverySnapshot, RuntimeError> {
+        #[cfg(target_os = "windows")]
+        {
+            Ok(DiscoverySnapshot {
+                is_snap_available: false,
+                scanned_at_ms: 0,
+                total_packages_scanned: 0,
+                results: Vec::new(),
+                diagnostics: Some("Snap discovery is not applicable on Windows".to_string()),
+            })
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Err(RuntimeError::PlatformNotSupported(
+                "Windows runtime is not supported on this host operating system".to_string(),
+            ))
+        }
     }
 
     fn detect_application(

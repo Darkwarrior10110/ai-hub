@@ -67,6 +67,36 @@ export interface InstalledApplication {
   package_id?: string | null;
 }
 
+export type MatchConfidence = 'confirmed' | 'ambiguous' | 'none';
+
+export type DiscoveryStatus =
+  | 'confirmed'
+  | 'ambiguous'
+  | 'not_installed'
+  | 'unavailable'
+  | 'failed';
+
+export type ApplicationSource = 'snap' | 'desktop_entry' | 'binary' | 'windows_registry';
+
+export interface ProviderDiscoveryResult {
+  provider_id: ProviderId;
+  status: DiscoveryStatus;
+  match_confidence: MatchConfidence;
+  source?: ApplicationSource | null;
+  matched_package?: string | null;
+  version?: string | null;
+  executable_path?: string | null;
+  details?: string | null;
+}
+
+export interface DiscoverySnapshot {
+  is_snap_available: boolean;
+  scanned_at_ms: number;
+  total_packages_scanned: number;
+  results: ProviderDiscoveryResult[];
+  diagnostics?: string | null;
+}
+
 const isTauriAvailable = (): boolean => {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 };
@@ -131,6 +161,26 @@ export const gatewayService = {
   async discoverProvider(providerId: ProviderId): Promise<InstalledApplication | null> {
     if (!isTauriAvailable()) return null;
     return invoke<InstalledApplication | null>('discover_provider', { providerId });
+  },
+
+  async discoverAllProviders(): Promise<DiscoverySnapshot> {
+    if (!isTauriAvailable()) {
+      return {
+        is_snap_available: false,
+        scanned_at_ms: Date.now(),
+        total_packages_scanned: 0,
+        results: [
+          { provider_id: 'chatgpt', status: 'not_installed', match_confidence: 'none', source: null },
+          { provider_id: 'gemini', status: 'not_installed', match_confidence: 'none', source: null },
+          { provider_id: 'claude', status: 'not_installed', match_confidence: 'none', source: null },
+          { provider_id: 'grok', status: 'not_installed', match_confidence: 'none', source: null },
+          { provider_id: 'perplexity', status: 'not_installed', match_confidence: 'none', source: null },
+          { provider_id: 'kimi', status: 'not_installed', match_confidence: 'none', source: null },
+        ],
+        diagnostics: 'Web/Mock environment: native discovery unavailable',
+      };
+    }
+    return invoke<DiscoverySnapshot>('discover_all_providers');
   },
 
   async launchProvider(providerId: ProviderId): Promise<ManagedApplication> {
