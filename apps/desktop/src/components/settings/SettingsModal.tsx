@@ -22,7 +22,7 @@ const themeOptions: { id: Theme; label: string; icon: typeof Sun }[] = [
 ];
 
 export function SettingsModal() {
-  const { isSettingsOpen, setSettingsOpen, theme, setTheme } = useUI();
+  const { isSettingsOpen, setSettingsOpen, theme, setTheme, runtimeSettings, updateSettings } = useUI();
   const [activeTab, setActiveTab] = useState<TabId>('general');
 
   if (!isSettingsOpen) return null;
@@ -111,11 +111,51 @@ export function SettingsModal() {
 
             {activeTab === 'general' && (
               <section className="settings-section">
-                <h4>Application</h4>
-                <p className="section-desc">General application settings and preferences.</p>
-                <div className="coming-soon-card">
-                  <div className="coming-soon-badge">Coming Soon</div>
-                  <p>Language, startup behavior, and notification preferences will be available here.</p>
+                <h4>Runtime & Resource Policies</h4>
+                <p className="section-desc">Configure application lifecycle behaviors and low-memory optimizations.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', cursor: 'pointer' }}>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '13px' }}>Resource Saver Mode</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Keep only one active managed AI desktop application running at a time</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={runtimeSettings.resource_saver_mode}
+                      onChange={(e) => updateSettings({ ...runtimeSettings, resource_saver_mode: e.target.checked })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', cursor: 'pointer' }}>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '13px' }}>Confirm Before Switching</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Prompt before shutting down current app when switching to another</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={runtimeSettings.confirm_before_switching}
+                      onChange={(e) => updateSettings({ ...runtimeSettings, confirm_before_switching: e.target.checked })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                  </label>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: '13px' }}>Graceful Shutdown Timeout</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Maximum wait duration for graceful process termination</span>
+                    </div>
+                    <select
+                      value={runtimeSettings.graceful_shutdown_timeout_secs}
+                      onChange={(e) => updateSettings({ ...runtimeSettings, graceful_shutdown_timeout_secs: Number(e.target.value) })}
+                      style={{ padding: '6px 10px', borderRadius: '6px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-medium)', cursor: 'pointer' }}
+                    >
+                      <option value="3">3 seconds</option>
+                      <option value="5">5 seconds (Default)</option>
+                      <option value="10">10 seconds</option>
+                      <option value="15">15 seconds</option>
+                    </select>
+                  </div>
                 </div>
               </section>
             )}

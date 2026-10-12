@@ -1,0 +1,3 @@
+pub mod app_manager;
+
+pub use app_manager::AppLifecycleManager;

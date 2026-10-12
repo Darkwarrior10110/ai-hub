@@ -1,4 +1,4 @@
-import { Plus, Settings, User, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
+import { RefreshCw, Settings, User, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import { useUI } from '../../providers/UIProvider';
 import { PROVIDERS, getProviderInitial } from '../../types';
 import './Sidebar.css';
@@ -8,6 +8,7 @@ export function Sidebar() {
     selectedProvider, setSelectedProvider,
     setSettingsOpen,
     isSidebarCollapsed, toggleSidebar,
+    managedApps, refreshProviderStates,
   } = useUI();
 
   return (
@@ -29,11 +30,15 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* New Chat */}
+      {/* Quick Action */}
       <div className="sidebar-actions">
-        <button className="new-chat-btn" title="New Chat">
-          <Plus size={18} />
-          {!isSidebarCollapsed && <span>New Chat</span>}
+        <button
+          className="new-chat-btn"
+          onClick={() => refreshProviderStates()}
+          title="Scan installed applications"
+        >
+          <RefreshCw size={16} />
+          {!isSidebarCollapsed && <span>Scan Apps</span>}
         </button>
       </div>
 
@@ -41,34 +46,41 @@ export function Sidebar() {
       <div className="sidebar-section">
         {!isSidebarCollapsed && <h3 className="section-label">Providers</h3>}
         <ul className="provider-list">
-          {PROVIDERS.map(p => (
-            <li
-              key={p.id}
-              className={`provider-item ${selectedProvider === p.id ? 'active' : ''}`}
-              onClick={() => setSelectedProvider(p.id)}
-              title={isSidebarCollapsed ? p.name : undefined}
-            >
-              <div
-                className="provider-badge"
-                style={{
-                  backgroundColor: selectedProvider === p.id ? p.color : 'transparent',
-                  borderColor: p.color,
-                  color: selectedProvider === p.id ? '#fff' : p.color,
-                }}
+          {PROVIDERS.map(p => {
+            const isInstalled = managedApps[p.id]?.lifecycle_state === 'installed' || managedApps[p.id]?.lifecycle_state === 'ready';
+            const isRunning = managedApps[p.id]?.lifecycle_state === 'running';
+
+            return (
+              <li
+                key={p.id}
+                className={`provider-item ${selectedProvider === p.id ? 'active' : ''}`}
+                onClick={() => setSelectedProvider(p.id)}
+                title={isSidebarCollapsed ? p.name : undefined}
               >
-                {getProviderInitial(p.id)}
-              </div>
-              {!isSidebarCollapsed && (
-                <div className="provider-info">
-                  <span className="provider-name">{p.name}</span>
-                  <span className="provider-desc">{p.description}</span>
+                <div
+                  className="provider-badge"
+                  style={{
+                    backgroundColor: selectedProvider === p.id ? p.color : 'transparent',
+                    borderColor: p.color,
+                    color: selectedProvider === p.id ? '#fff' : p.color,
+                  }}
+                >
+                  {getProviderInitial(p.id)}
                 </div>
-              )}
-              {!isSidebarCollapsed && selectedProvider === p.id && (
-                <div className="active-dot" style={{ backgroundColor: p.color }} />
-              )}
-            </li>
-          ))}
+                {!isSidebarCollapsed && (
+                  <div className="provider-info">
+                    <span className="provider-name">{p.name}</span>
+                    <span className="provider-desc">
+                      {isRunning ? 'Running' : isInstalled ? 'Installed' : p.description}
+                    </span>
+                  </div>
+                )}
+                {!isSidebarCollapsed && selectedProvider === p.id && (
+                  <div className="active-dot" style={{ backgroundColor: p.color }} />
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
 

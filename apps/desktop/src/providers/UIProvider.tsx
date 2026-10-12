@@ -1,7 +1,12 @@
-import { createContext, useContext, useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { Theme, ProviderId } from '../types';
-import { providerManager } from './registry';
+import type { Theme } from '../types';
+import {
+  gatewayService,
+  type ProviderId,
+  type ManagedApplication,
+  type RuntimeSettings,
+} from '../services/gateway';
 
 interface UIState {
   theme: Theme;
@@ -12,41 +17,107 @@ interface UIState {
   setSettingsOpen: (v: boolean) => void;
   isSidebarCollapsed: boolean;
   toggleSidebar: () => void;
-  connectProvider: (id: string) => Promise<void>;
-  disconnectProvider: (id: string) => Promise<void>;
+  managedApps: Record<ProviderId, ManagedApplication>;
+  runtimeSettings: RuntimeSettings;
+  launchProvider: (id: ProviderId) => Promise<void>;
+  stopProvider: (id: ProviderId) => Promise<void>;
+  switchProvider: (id: ProviderId) => Promise<void>;
+  refreshProviderStates: () => Promise<void>;
+  updateSettings: (settings: RuntimeSettings) => Promise<void>;
 }
 
 const UIContext = createContext<UIState | undefined>(undefined);
+
+const initialManagedApps: Record<ProviderId, ManagedApplication> = {
+  chatgpt: { provider_id: 'chatgpt', lifecycle_state: 'unknown', is_active: false, last_state_change_ms: 0 },
+  gemini: { provider_id: 'gemini', lifecycle_state: 'unknown', is_active: false, last_state_change_ms: 0 },
+  claude: { provider_id: 'claude', lifecycle_state: 'unknown', is_active: false, last_state_change_ms: 0 },
+  grok: { provider_id: 'grok', lifecycle_state: 'unknown', is_active: false, last_state_change_ms: 0 },
+  perplexity: { provider_id: 'perplexity', lifecycle_state: 'unknown', is_active: false, last_state_change_ms: 0 },
+  kimi: { provider_id: 'kimi', lifecycle_state: 'unknown', is_active: false, last_state_change_ms: 0 },
+};
+
+const initialRuntimeSettings: RuntimeSettings = {
+  resource_saver_mode: true,
+  confirm_before_switching: true,
+  graceful_shutdown_timeout_secs: 5,
+  allow_force_termination: false,
+  auto_start_on_boot: false,
+  metrics_polling_interval_secs: 3,
+};
 
 export function UIProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [selectedProvider, setSelectedProviderState] = useState<ProviderId>('chatgpt');
+  const [managedApps, setManagedApps] = useState<Record<ProviderId, ManagedApplication>>(initialManagedApps);
+  const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettings>(initialRuntimeSettings);
 
-  // Sync state from ProviderManager
-  useSyncExternalStore(
-    (onStoreChange) => providerManager.subscribe(onStoreChange),
-    () => providerManager.getActiveProvider()
-  );
-  
-  const selectedProvider = (providerManager.getActiveProvider()?.info.id as ProviderId) || 'chatgpt';
+  const refreshProviderStates = useCallback(async () => {
+    try {
+      const providers = await gatewayService.listProviders();
+      const updated: Record<ProviderId, ManagedApplication> = { ...initialManagedApps };
+
+      await Promise.all(
+        providers.map(async (p) => {
+          try {
+            const state = await gatewayService.getProviderState(p.id);
+            updated[p.id] = state;
+          } catch {
+            // Keep existing state on error
+          }
+        })
+      );
+
+      setManagedApps(updated);
+
+      const active = await gatewayService.getActiveProvider();
+      if (active && (active as ProviderId) in updated) {
+        setSelectedProviderState(active as ProviderId);
+      }
+
+      const settings = await gatewayService.getRuntimeSettings();
+      setRuntimeSettings(settings);
+    } catch {
+      // Non-blocking initialization fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshProviderStates();
+  }, [refreshProviderStates]);
 
   const setSelectedProvider = useCallback((p: ProviderId) => {
-    providerManager.selectProvider(p);
+    setSelectedProviderState(p);
+    gatewayService.setActiveProvider(p).catch(() => {});
   }, []);
 
-  const connectProvider = useCallback(async (id: string) => {
-    await providerManager.connectProvider(id);
+  const launchProvider = useCallback(async (id: ProviderId) => {
+    const updated = await gatewayService.launchProvider(id);
+    setManagedApps((prev) => ({ ...prev, [id]: updated }));
   }, []);
 
-  const disconnectProvider = useCallback(async (id: string) => {
-    await providerManager.disconnectProvider(id);
+  const stopProvider = useCallback(async (id: ProviderId) => {
+    const updated = await gatewayService.stopProvider(id);
+    setManagedApps((prev) => ({ ...prev, [id]: updated }));
+  }, []);
+
+  const switchProvider = useCallback(async (id: ProviderId) => {
+    const updated = await gatewayService.switchProvider(id);
+    setManagedApps((prev) => ({ ...prev, [id]: updated }));
+  }, []);
+
+  const updateSettings = useCallback(async (settings: RuntimeSettings) => {
+    const updated = await gatewayService.updateRuntimeSettings(settings);
+    setRuntimeSettings(updated);
   }, []);
 
   const toggleSidebar = useCallback(() => {
-    setIsSidebarCollapsed(prev => !prev);
+    setIsSidebarCollapsed((prev) => !prev);
   }, []);
 
+  // Theme application
   useEffect(() => {
     const applyTheme = (t: Theme) => {
       if (t === 'system') {
@@ -59,7 +130,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
     applyTheme(theme);
 
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const listener = () => { if (theme === 'system') applyTheme('system'); };
+    const listener = () => {
+      if (theme === 'system') applyTheme('system');
+    };
     mq.addEventListener('change', listener);
     return () => mq.removeEventListener('change', listener);
   }, [theme]);
@@ -74,13 +147,25 @@ export function UIProvider({ children }: { children: ReactNode }) {
   }, [isSettingsOpen]);
 
   return (
-    <UIContext.Provider value={{
-      theme, setTheme,
-      selectedProvider, setSelectedProvider,
-      isSettingsOpen, setSettingsOpen,
-      isSidebarCollapsed, toggleSidebar,
-      connectProvider, disconnectProvider
-    }}>
+    <UIContext.Provider
+      value={{
+        theme,
+        setTheme,
+        selectedProvider,
+        setSelectedProvider,
+        isSettingsOpen,
+        setSettingsOpen,
+        isSidebarCollapsed,
+        toggleSidebar,
+        managedApps,
+        runtimeSettings,
+        launchProvider,
+        stopProvider,
+        switchProvider,
+        refreshProviderStates,
+        updateSettings,
+      }}
+    >
       {children}
     </UIContext.Provider>
   );

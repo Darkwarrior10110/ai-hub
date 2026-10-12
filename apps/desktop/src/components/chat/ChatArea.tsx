@@ -1,29 +1,23 @@
 import { useUI } from '../../providers/UIProvider';
 import { PROVIDERS } from '../../types';
-import { providerManager } from '../../providers/registry';
-import { ConnectionState, AuthenticationNotSupported } from '@ai-hub/provider-sdk';
 import { MessageComposer } from '../composer/MessageComposer';
 import { Sparkles, ArrowRight, Plug, AlertCircle } from 'lucide-react';
 import './ChatArea.css';
 import { useState } from 'react';
 
 export function ChatArea() {
-  const { selectedProvider, connectProvider } = useUI();
+  const { selectedProvider, launchProvider, managedApps } = useUI();
   const provider = PROVIDERS.find(p => p.id === selectedProvider)!;
-  const adapter = providerManager.getProvider(selectedProvider);
-  const connectionState = adapter.getConnectionState();
+  const appState = managedApps[selectedProvider];
+  const isRunning = appState?.lifecycle_state === 'running';
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleConnect = async () => {
     setErrorMsg(null);
     try {
-      await connectProvider(selectedProvider);
-    } catch (e) {
-      if (e instanceof AuthenticationNotSupported) {
-        setErrorMsg(e.message);
-      } else {
-        setErrorMsg('Failed to connect.');
-      }
+      await launchProvider(selectedProvider);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : 'Failed to launch provider.');
     }
   };
 
@@ -41,10 +35,8 @@ export function ChatArea() {
           <div className="header-provider-info">
             <span className="header-provider-name">{provider.name}</span>
             <span className="header-provider-status">
-              <span className={`status-dot ${connectionState === ConnectionState.CONNECTED ? 'online' : connectionState === ConnectionState.ERROR ? 'error' : 'offline'}`} />
-              {connectionState === ConnectionState.CONNECTED ? 'Connected' : 
-               connectionState === ConnectionState.CONNECTING ? 'Connecting...' : 
-               connectionState === ConnectionState.ERROR ? 'Error' : 'Not connected'}
+              <span className={`status-dot ${isRunning ? 'online' : 'offline'}`} />
+              {isRunning ? 'Running' : 'Ready'}
             </span>
           </div>
         </div>
@@ -52,10 +44,10 @@ export function ChatArea() {
            <button 
              className="connect-btn" 
              onClick={handleConnect}
-             disabled={connectionState === ConnectionState.CONNECTING || connectionState === ConnectionState.CONNECTED}
+             disabled={isRunning}
            >
              <Plug size={14} />
-             <span>{connectionState === ConnectionState.CONNECTED ? 'Connected' : 'Connect'}</span>
+             <span>{isRunning ? 'Running' : 'Launch'}</span>
            </button>
         </div>
       </header>
