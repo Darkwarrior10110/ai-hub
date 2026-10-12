@@ -1,0 +1,97 @@
+.composer {
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.composer-box {
+  display: flex;
+  align-items: flex-end;
+  background-color: var(--bg-secondary);
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 6px 8px;
+  gap: 4px;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.composer-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.composer-box.has-text {
+  border-color: var(--accent);
+}
+
+/* Actions */
+.composer-action {
+  padding: 8px;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.composer-action.attach:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.composer-action.send {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.composer-action.send.ready {
+  opacity: 1;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transform: scale(1);
+  animation: fadeInScale var(--transition-fast);
+}
+
+.composer-action.send.ready:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.composer-action.send.ready:active {
+  transform: scale(0.97);
+}
+
+/* Textarea */
+.composer-box textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  resize: none;
+  padding: 8px 4px;
+  max-height: 200px;
+  line-height: 1.5;
+}
+
+.composer-box textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Status */
+.composer-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  animation: fadeIn var(--transition-slow);
+}

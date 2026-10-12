@@ -1,0 +1,254 @@
+/* Overlay */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn var(--transition-fast);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Dialog */
+.settings-dialog {
+  background-color: var(--bg-primary);
+  width: 860px;
+  height: 560px;
+  max-width: 95vw;
+  max-height: 90vh;
+  border-radius: var(--radius-xl);
+  display: flex;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: fadeInScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1px solid var(--border-primary);
+}
+
+/* Nav */
+.settings-nav {
+  width: 220px;
+  min-width: 220px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0 12px;
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  transition: all var(--transition-fast);
+}
+
+.settings-tab .tab-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: all var(--transition-fast);
+}
+
+.settings-tab:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.settings-tab:hover .tab-arrow {
+  opacity: 0.5;
+  transform: translateX(0);
+}
+
+.settings-tab.active {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.settings-tab.active .tab-arrow {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--accent);
+}
+
+.settings-nav-footer {
+  margin-top: auto;
+  padding: 12px;
+}
+
+.version-label {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+/* Content */
+.settings-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.settings-content-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 56px;
+}
+
+.settings-content-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.settings-close {
+  padding: 8px;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.settings-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Scroll Area */
+.settings-scroll {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.settings-section h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.section-desc {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* Theme Cards */
+.theme-grid {
+  display: flex;
+  gap: 12px;
+}
+
+.theme-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px;
+  background-color: var(--bg-secondary);
+  border: 1.5px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.theme-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-card.selected {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.theme-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.theme-card.selected .theme-card-icon {
+  background-color: var(--accent);
+  color: white;
+}
+
+.theme-card-label {
+  font-weight: 500;
+  font-size: 0.88rem;
+}
+
+.theme-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--accent);
+  animation: fadeInScale var(--transition-spring);
+}
+
+/* Coming Soon Card */
+.coming-soon-card {
+  padding: 28px;
+  background-color: var(--bg-secondary);
+  border: 1.5px dashed var(--border-primary);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.coming-soon-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.coming-soon-sub {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+}
