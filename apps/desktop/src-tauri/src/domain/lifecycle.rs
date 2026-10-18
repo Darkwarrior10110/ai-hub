@@ -18,6 +18,7 @@ pub enum ApplicationLifecycleState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProcessOwnership {
+    #[serde(rename = "started_by_ai_hub")]
     StartedByAIHub,
     AlreadyRunningExternally,
     DiscoveredRunning,
@@ -30,6 +31,38 @@ pub struct ProcessIdentity {
     pub process_name: String,
     pub start_time_ms: Option<u64>,
     pub ownership: ProcessOwnership,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_time_ticks: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executable_path: Option<String>,
+}
+
+impl ProcessIdentity {
+    pub fn new(
+        pid: u32,
+        process_name: String,
+        start_time_ms: Option<u64>,
+        ownership: ProcessOwnership,
+    ) -> Self {
+        Self {
+            pid,
+            process_name,
+            start_time_ms,
+            ownership,
+            start_time_ticks: None,
+            executable_path: None,
+        }
+    }
+
+    pub fn with_validation_details(
+        mut self,
+        start_time_ticks: Option<u64>,
+        executable_path: Option<String>,
+    ) -> Self {
+        self.start_time_ticks = start_time_ticks;
+        self.executable_path = executable_path;
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

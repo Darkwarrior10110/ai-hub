@@ -1,4 +1,4 @@
-import { RefreshCw, Settings, User, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
+import { RefreshCw, Settings, User, PanelLeftClose, PanelLeftOpen, Zap, Play } from 'lucide-react';
 import { useUI } from '../../providers/UIProvider';
 import { PROVIDERS, getProviderInitial } from '../../types';
 import './Sidebar.css';
@@ -9,6 +9,12 @@ export function Sidebar() {
     setSettingsOpen,
     isSidebarCollapsed, toggleSidebar,
     managedApps, refreshProviderStates,
+    discoverySnapshot,
+    isLaunching,
+    launchingProviderId,
+    isSwitching,
+    switchingTargetId,
+    launchProvider,
   } = useUI();
 
   return (
@@ -47,8 +53,15 @@ export function Sidebar() {
         {!isSidebarCollapsed && <h3 className="section-label">Providers</h3>}
         <ul className="provider-list">
           {PROVIDERS.map(p => {
-            const isInstalled = managedApps[p.id]?.lifecycle_state === 'installed' || managedApps[p.id]?.lifecycle_state === 'ready';
-            const isRunning = managedApps[p.id]?.lifecycle_state === 'running';
+            const disc = discoverySnapshot?.results.find((r) => r.provider_id === p.id);
+            const pState = managedApps[p.id];
+            const isConfirmed = disc?.status === 'confirmed';
+            const isInstalled = pState?.lifecycle_state === 'installed' || isConfirmed || pState?.lifecycle_state === 'running';
+            const isAmbiguous = disc?.status === 'ambiguous';
+            const isRunning = pState?.lifecycle_state === 'running';
+            const isThisLaunching = isLaunching && launchingProviderId === p.id;
+            const isThisSwitching = isSwitching && switchingTargetId === p.id;
+            const isLaunchDisabled = isLaunching || isSwitching || !isInstalled || isAmbiguous;
 
             return (
               <li
@@ -74,6 +87,38 @@ export function Sidebar() {
                       {isRunning ? 'Running' : isInstalled ? 'Installed' : p.description}
                     </span>
                   </div>
+                )}
+                {!isSidebarCollapsed && (
+                  <button
+                    type="button"
+                    className={`sidebar-launch-btn ${isInstalled ? 'installed' : ''} ${isRunning ? 'running' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedProvider(p.id);
+                      launchProvider(p.id).catch(() => {});
+                    }}
+                    disabled={isLaunchDisabled}
+                    data-testid={`sidebar-launch-btn-${p.id}`}
+                    title={
+                      isThisSwitching
+                        ? `Switching to ${p.name}…`
+                        : isThisLaunching
+                        ? `Launching ${p.name}…`
+                        : !isInstalled
+                        ? `${p.name} is not installed`
+                        : isAmbiguous
+                        ? `${p.name} detection is ambiguous`
+                        : isRunning
+                        ? `${p.name} is running (PID: ${pState?.process?.pid ?? 'Active'})`
+                        : `Launch ${p.name}`
+                    }
+                  >
+                    {isThisLaunching || isThisSwitching ? (
+                      <RefreshCw size={12} className="spinning" />
+                    ) : (
+                      <Play size={12} fill={isRunning ? 'currentColor' : 'none'} />
+                    )}
+                  </button>
                 )}
                 {!isSidebarCollapsed && selectedProvider === p.id && (
                   <div className="active-dot" style={{ backgroundColor: p.color }} />

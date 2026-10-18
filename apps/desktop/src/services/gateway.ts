@@ -23,7 +23,32 @@ export interface ProcessIdentity {
   pid: number;
   process_name: string;
   start_time_ms?: number;
+  start_time_ticks?: number;
+  executable_path?: string;
   ownership: ProcessOwnership;
+}
+
+export interface SystemMemory {
+  total_bytes: number;
+  available_bytes: number;
+  used_bytes: number;
+  used_percentage: number;
+  swap_total_bytes: number;
+  swap_free_bytes: number;
+  swap_used_bytes: number;
+}
+
+export interface ResourceSnapshot {
+  provider_id?: ProviderId | null;
+  total_cpu_percentage?: number | null;
+  total_memory_bytes?: number | null;
+  system_memory?: SystemMemory | null;
+  memory_pressure_warning: boolean;
+  memory_pressure_message?: string | null;
+  tracked_processes_count: number;
+  is_available: boolean;
+  diagnostics?: string | null;
+  timestamp_ms: number;
 }
 
 export interface ManagedApplication {
@@ -95,6 +120,22 @@ export interface DiscoverySnapshot {
   total_packages_scanned: number;
   results: ProviderDiscoveryResult[];
   diagnostics?: string | null;
+}
+
+export type LaunchStatus =
+  | 'rejected'
+  | 'launch_failed'
+  | 'launch_requested'
+  | 'running'
+  | 'already_running'
+  | 'unsupported';
+
+export interface LaunchResult {
+  provider_id: ProviderId;
+  status: LaunchStatus;
+  process?: ProcessIdentity | null;
+  details?: string | null;
+  launched_at_ms: number;
 }
 
 const isTauriAvailable = (): boolean => {
@@ -183,11 +224,11 @@ export const gatewayService = {
     return invoke<DiscoverySnapshot>('discover_all_providers');
   },
 
-  async launchProvider(providerId: ProviderId): Promise<ManagedApplication> {
+  async launchProvider(providerId: ProviderId): Promise<LaunchResult> {
     if (!isTauriAvailable()) {
       throw new Error('Launching external desktop applications requires the native Tauri runtime');
     }
-    return invoke<ManagedApplication>('launch_provider', { providerId });
+    return invoke<LaunchResult>('launch_provider', { providerId });
   },
 
   async stopProvider(providerId: ProviderId): Promise<ManagedApplication> {
@@ -202,5 +243,32 @@ export const gatewayService = {
       throw new Error('Switching external desktop applications requires the native Tauri runtime');
     }
     return invoke<ManagedApplication>('switch_provider', { providerId });
+  },
+
+  async getSystemResources(): Promise<ResourceSnapshot> {
+    if (!isTauriAvailable()) {
+      return {
+        is_available: false,
+        memory_pressure_warning: false,
+        tracked_processes_count: 0,
+        diagnostics: 'Web/Mock environment: /proc/meminfo unavailable',
+        timestamp_ms: Date.now(),
+      };
+    }
+    return invoke<ResourceSnapshot>('get_system_resources');
+  },
+
+  async reconcileProviderStates(): Promise<Record<ProviderId, ManagedApplication>> {
+    if (!isTauriAvailable()) {
+      return {
+        chatgpt: { provider_id: 'chatgpt', lifecycle_state: 'not_installed', is_active: false, last_state_change_ms: Date.now() },
+        gemini: { provider_id: 'gemini', lifecycle_state: 'not_installed', is_active: false, last_state_change_ms: Date.now() },
+        claude: { provider_id: 'claude', lifecycle_state: 'not_installed', is_active: false, last_state_change_ms: Date.now() },
+        grok: { provider_id: 'grok', lifecycle_state: 'not_installed', is_active: false, last_state_change_ms: Date.now() },
+        perplexity: { provider_id: 'perplexity', lifecycle_state: 'not_installed', is_active: false, last_state_change_ms: Date.now() },
+        kimi: { provider_id: 'kimi', lifecycle_state: 'not_installed', is_active: false, last_state_change_ms: Date.now() },
+      };
+    }
+    return invoke<Record<ProviderId, ManagedApplication>>('reconcile_provider_states');
   },
 };

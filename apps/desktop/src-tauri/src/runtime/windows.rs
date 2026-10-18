@@ -2,8 +2,10 @@ use super::traits::RuntimePlatform;
 use crate::domain::{
     discovery::{DiscoverySnapshot, InstalledApplication},
     error::RuntimeError,
+    launch::LaunchResult,
     lifecycle::ProcessIdentity,
     provider::ProviderDefinition,
+    ResourceSnapshot,
 };
 
 #[derive(Debug, Default)]
@@ -59,6 +61,24 @@ impl RuntimePlatform for WindowsRuntime {
         }
     }
 
+    fn launch_application(
+        &self,
+        _app: &InstalledApplication,
+    ) -> Result<LaunchResult, RuntimeError> {
+        #[cfg(target_os = "windows")]
+        {
+            Err(RuntimeError::PlatformNotSupported(
+                "Windows native application launching requires verified Windows discovery (Milestone 8)".to_string(),
+            ))
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Err(RuntimeError::PlatformNotSupported(
+                "Windows runtime cannot launch applications on a Linux host".to_string(),
+            ))
+        }
+    }
+
     fn is_process_running(&self, _process: &ProcessIdentity) -> Result<bool, RuntimeError> {
         #[cfg(target_os = "windows")]
         {
@@ -81,5 +101,29 @@ impl RuntimePlatform for WindowsRuntime {
         Err(RuntimeError::PlatformNotSupported(
             "Windows process management is not available on this host".to_string(),
         ))
+    }
+
+    fn validate_process(
+        &self,
+        _process: &ProcessIdentity,
+        _provider: &ProviderDefinition,
+    ) -> Result<bool, RuntimeError> {
+        Err(RuntimeError::PlatformNotSupported(
+            "Windows process identity validation is not supported on this host".to_string(),
+        ))
+    }
+
+    fn get_system_resources(&self) -> Result<ResourceSnapshot, RuntimeError> {
+        Ok(ResourceSnapshot {
+            is_available: false,
+            diagnostics: Some(
+                "System resource monitoring is not supported on Windows in this build".to_string(),
+            ),
+            timestamp_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0),
+            ..Default::default()
+        })
     }
 }

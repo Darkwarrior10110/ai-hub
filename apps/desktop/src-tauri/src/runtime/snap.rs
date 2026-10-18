@@ -231,7 +231,7 @@ fn is_generic_keyword(name: &str) -> bool {
         "mesa",
     ];
 
-    GENERIC_WORDS.iter().any(|&w| name == w)
+    GENERIC_WORDS.contains(&name)
 }
 
 /// Query installed Snap metadata via the bounded, non-interactive `snap list` command.

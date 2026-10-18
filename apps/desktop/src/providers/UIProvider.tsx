@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { Theme } from '../types';
 import {
@@ -7,6 +7,8 @@ import {
   type ManagedApplication,
   type RuntimeSettings,
   type DiscoverySnapshot,
+  type LaunchResult,
+  type ResourceSnapshot,
 } from '../services/gateway';
 
 interface UIState {
@@ -21,12 +23,23 @@ interface UIState {
   managedApps: Record<ProviderId, ManagedApplication>;
   runtimeSettings: RuntimeSettings;
   discoverySnapshot: DiscoverySnapshot | null;
+  systemResources: ResourceSnapshot | null;
   isScanning: boolean;
+  isLaunching: boolean;
+  launchingProviderId: ProviderId | null;
+  isStopping: Record<ProviderId, boolean>;
+  isSwitching: boolean;
+  switchingTargetId: ProviderId | null;
+  switchError: string | null;
+  clearSwitchError: () => void;
+  lastLaunchResult: LaunchResult | null;
   scanApplications: () => Promise<void>;
-  launchProvider: (id: ProviderId) => Promise<void>;
+  launchProvider: (id: ProviderId) => Promise<LaunchResult>;
   stopProvider: (id: ProviderId) => Promise<void>;
-  switchProvider: (id: ProviderId) => Promise<void>;
+  switchProvider: (id: ProviderId) => Promise<ManagedApplication>;
   refreshProviderStates: () => Promise<void>;
+  refreshSystemResources: () => Promise<void>;
+  reconcileStates: () => Promise<void>;
   updateSettings: (settings: RuntimeSettings) => Promise<void>;
 }
 
@@ -58,28 +71,89 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [managedApps, setManagedApps] = useState<Record<ProviderId, ManagedApplication>>(initialManagedApps);
   const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettings>(initialRuntimeSettings);
   const [discoverySnapshot, setDiscoverySnapshot] = useState<DiscoverySnapshot | null>(null);
+  const [systemResources, setSystemResources] = useState<ResourceSnapshot | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
+  const [launchingProviderId, setLaunchingProviderId] = useState<ProviderId | null>(null);
+  const [isStopping, setIsStopping] = useState<Record<ProviderId, boolean>>({
+    chatgpt: false,
+    gemini: false,
+    claude: false,
+    grok: false,
+    perplexity: false,
+    kimi: false,
+  });
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [switchingTargetId, setSwitchingTargetId] = useState<ProviderId | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const [lastLaunchResult, setLastLaunchResult] = useState<LaunchResult | null>(null);
+
+  // Request sequencing and mutation timestamp refs to drop stale asynchronous responses
+  const stateVersionRef = useRef<number>(0);
+  const lastStateMutationTimestampRef = useRef<number>(Date.now());
+  const isSwitchingRef = useRef<boolean>(false);
+  const isLaunchingRef = useRef<boolean>(false);
+  const isAnyStoppingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    isSwitchingRef.current = isSwitching;
+  }, [isSwitching]);
+
+  useEffect(() => {
+    isLaunchingRef.current = isLaunching;
+  }, [isLaunching]);
+
+  useEffect(() => {
+    isAnyStoppingRef.current = Object.values(isStopping).some(Boolean);
+  }, [isStopping]);
+
+  const clearSwitchError = useCallback(() => {
+    setSwitchError(null);
+  }, []);
+
+  const refreshSystemResources = useCallback(async () => {
+    try {
+      const res = await gatewayService.getSystemResources();
+      setSystemResources(res);
+    } catch {
+      // Non-blocking fallback
+    }
+  }, []);
 
   const refreshProviderStates = useCallback(async () => {
+    const reqVersion = ++stateVersionRef.current;
+    const reqTime = Date.now();
     try {
-      const providers = await gatewayService.listProviders();
-      const updated: Record<ProviderId, ManagedApplication> = { ...initialManagedApps };
+      const states = await gatewayService.reconcileProviderStates();
+      if (
+        reqVersion < stateVersionRef.current ||
+        reqTime < lastStateMutationTimestampRef.current
+      ) {
+        return;
+      }
 
-      await Promise.all(
-        providers.map(async (p) => {
-          try {
-            const state = await gatewayService.getProviderState(p.id);
-            updated[p.id] = state;
-          } catch {
-            // Keep existing state on error
+      setManagedApps((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [key, val] of Object.entries(states)) {
+          const pid = key as ProviderId;
+          const prevApp = prev[pid];
+          if (
+            !prevApp ||
+            prevApp.lifecycle_state !== val.lifecycle_state ||
+            prevApp.is_active !== val.is_active ||
+            prevApp.process?.pid !== val.process?.pid ||
+            prevApp.error_message !== val.error_message
+          ) {
+            next[pid] = val;
+            changed = true;
           }
-        })
-      );
-
-      setManagedApps(updated);
+        }
+        return changed ? next : prev;
+      });
 
       const active = await gatewayService.getActiveProvider();
-      if (active && (active as ProviderId) in updated) {
+      if (active && (active as ProviderId) in states) {
         setSelectedProviderState(active as ProviderId);
       }
 
@@ -96,38 +170,171 @@ export function UIProvider({ children }: { children: ReactNode }) {
       const snapshot = await gatewayService.discoverAllProviders();
       setDiscoverySnapshot(snapshot);
       await refreshProviderStates();
+      await refreshSystemResources();
     } catch {
       // Non-blocking discovery fallback
     } finally {
       setIsScanning(false);
     }
-  }, [refreshProviderStates]);
+  }, [refreshProviderStates, refreshSystemResources]);
+
+  const reconcileStates = useCallback(async () => {
+    const reqVersion = ++stateVersionRef.current;
+    const reqTime = Date.now();
+    try {
+      const states = await gatewayService.reconcileProviderStates();
+      // Drop stale response if a newer mutation occurred while in flight
+      if (
+        reqVersion < stateVersionRef.current ||
+        reqTime < lastStateMutationTimestampRef.current
+      ) {
+        return;
+      }
+      setManagedApps((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [key, val] of Object.entries(states)) {
+          const pid = key as ProviderId;
+          const prevApp = prev[pid];
+          if (
+            !prevApp ||
+            prevApp.lifecycle_state !== val.lifecycle_state ||
+            prevApp.is_active !== val.is_active ||
+            prevApp.process?.pid !== val.process?.pid ||
+            prevApp.error_message !== val.error_message
+          ) {
+            next[pid] = val;
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    } catch {
+      // Non-blocking fallback
+    }
+  }, []);
 
   useEffect(() => {
     refreshProviderStates().then(() => {
       scanApplications();
+      refreshSystemResources();
+      reconcileStates();
     });
-  }, [refreshProviderStates, scanApplications]);
+  }, [refreshProviderStates, scanApplications, refreshSystemResources, reconcileStates]);
+
+  // Bounded non-overlapping lifecycle reconciliation and resource monitoring poll (3 seconds interval)
+  useEffect(() => {
+    let isMounted = true;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+
+    const poll = async () => {
+      if (!isMounted || inFlight) return;
+      if (isSwitchingRef.current || isLaunchingRef.current || isAnyStoppingRef.current) {
+        timerId = setTimeout(poll, 1500);
+        return;
+      }
+      inFlight = true;
+      try {
+        await refreshSystemResources();
+        await reconcileStates();
+      } finally {
+        inFlight = false;
+        if (isMounted) {
+          timerId = setTimeout(poll, 3000);
+        }
+      }
+    };
+
+    poll();
+
+    return () => {
+      isMounted = false;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [refreshSystemResources, reconcileStates]);
 
   const setSelectedProvider = useCallback((p: ProviderId) => {
     setSelectedProviderState(p);
     gatewayService.setActiveProvider(p).catch(() => {});
   }, []);
 
-  const launchProvider = useCallback(async (id: ProviderId) => {
-    const updated = await gatewayService.launchProvider(id);
-    setManagedApps((prev) => ({ ...prev, [id]: updated }));
-  }, []);
+  const launchProvider = useCallback(async (id: ProviderId): Promise<LaunchResult> => {
+    setIsLaunching(true);
+    setLaunchingProviderId(id);
+    lastStateMutationTimestampRef.current = Date.now();
+    stateVersionRef.current += 1;
+    try {
+      const result = await gatewayService.launchProvider(id);
+      setLastLaunchResult(result);
+      lastStateMutationTimestampRef.current = Date.now();
+      stateVersionRef.current += 1;
+      await refreshProviderStates();
+      await refreshSystemResources();
+      return result;
+    } catch (err) {
+      lastStateMutationTimestampRef.current = Date.now();
+      stateVersionRef.current += 1;
+      await refreshProviderStates();
+      await refreshSystemResources();
+      throw err;
+    } finally {
+      setIsLaunching(false);
+      setLaunchingProviderId(null);
+    }
+  }, [refreshProviderStates, refreshSystemResources]);
 
   const stopProvider = useCallback(async (id: ProviderId) => {
-    const updated = await gatewayService.stopProvider(id);
-    setManagedApps((prev) => ({ ...prev, [id]: updated }));
-  }, []);
+    setIsStopping((prev) => ({ ...prev, [id]: true }));
+    lastStateMutationTimestampRef.current = Date.now();
+    stateVersionRef.current += 1;
+    try {
+      const updated = await gatewayService.stopProvider(id);
+      lastStateMutationTimestampRef.current = Date.now();
+      stateVersionRef.current += 1;
+      setManagedApps((prev) => ({ ...prev, [id]: updated }));
+      await refreshProviderStates();
+      await refreshSystemResources();
+    } catch (err) {
+      lastStateMutationTimestampRef.current = Date.now();
+      stateVersionRef.current += 1;
+      await refreshProviderStates();
+      await refreshSystemResources();
+      throw err;
+    } finally {
+      setIsStopping((prev) => ({ ...prev, [id]: false }));
+    }
+  }, [refreshProviderStates, refreshSystemResources]);
 
-  const switchProvider = useCallback(async (id: ProviderId) => {
-    const updated = await gatewayService.switchProvider(id);
-    setManagedApps((prev) => ({ ...prev, [id]: updated }));
-  }, []);
+  const switchProvider = useCallback(async (id: ProviderId): Promise<ManagedApplication> => {
+    setIsSwitching(true);
+    setSwitchingTargetId(id);
+    setSwitchError(null);
+    lastStateMutationTimestampRef.current = Date.now();
+    stateVersionRef.current += 1;
+    try {
+      const updated = await gatewayService.switchProvider(id);
+      setSelectedProviderState(id);
+      lastStateMutationTimestampRef.current = Date.now();
+      stateVersionRef.current += 1;
+
+      // Reconcile all affected providers: target is now Running, previous running apps are Stopped
+      await refreshProviderStates();
+      await refreshSystemResources();
+      return updated;
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setSwitchError(errMsg);
+      lastStateMutationTimestampRef.current = Date.now();
+      stateVersionRef.current += 1;
+      await refreshProviderStates();
+      await refreshSystemResources();
+      throw err;
+    } finally {
+      setIsSwitching(false);
+      setSwitchingTargetId(null);
+    }
+  }, [refreshProviderStates, refreshSystemResources]);
 
   const updateSettings = useCallback(async (settings: RuntimeSettings) => {
     const updated = await gatewayService.updateRuntimeSettings(settings);
@@ -181,12 +388,23 @@ export function UIProvider({ children }: { children: ReactNode }) {
         managedApps,
         runtimeSettings,
         discoverySnapshot,
+        systemResources,
         isScanning,
+        isLaunching,
+        launchingProviderId,
+        isStopping,
+        isSwitching,
+        switchingTargetId,
+        switchError,
+        clearSwitchError,
+        lastLaunchResult,
         scanApplications,
         launchProvider,
         stopProvider,
         switchProvider,
         refreshProviderStates,
+        refreshSystemResources,
+        reconcileStates,
         updateSettings,
       }}
     >

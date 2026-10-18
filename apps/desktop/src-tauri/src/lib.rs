@@ -39,6 +39,8 @@ pub fn run() {
             commands::launch_provider,
             commands::stop_provider,
             commands::switch_provider,
+            commands::get_system_resources,
+            commands::reconcile_provider_states,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

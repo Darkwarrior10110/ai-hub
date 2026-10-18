@@ -20,6 +20,9 @@ pub enum RuntimeError {
     DiscoveryFailed(String),
     DiscoveryTimeout(String),
     InvalidMetadata(String),
+    AmbiguousMatch(String),
+    InvalidLaunchTarget(String),
+    ProcessVerificationFailed(String),
     NotImplemented(String),
     Internal(String),
 }
@@ -43,6 +46,9 @@ impl fmt::Display for RuntimeError {
             Self::DiscoveryFailed(msg) => write!(f, "Discovery failed: {msg}"),
             Self::DiscoveryTimeout(msg) => write!(f, "Discovery timed out: {msg}"),
             Self::InvalidMetadata(msg) => write!(f, "Invalid metadata: {msg}"),
+            Self::AmbiguousMatch(msg) => write!(f, "Ambiguous match: {msg}"),
+            Self::InvalidLaunchTarget(msg) => write!(f, "Invalid launch target: {msg}"),
+            Self::ProcessVerificationFailed(msg) => write!(f, "Process verification failed: {msg}"),
             Self::NotImplemented(msg) => write!(f, "Not implemented: {msg}"),
             Self::Internal(msg) => write!(f, "Internal error: {msg}"),
         }

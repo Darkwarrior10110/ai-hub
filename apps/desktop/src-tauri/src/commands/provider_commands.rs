@@ -2,9 +2,11 @@ use crate::{
     domain::{
         discovery::{DiscoverySnapshot, InstalledApplication},
         error::RuntimeError,
+        launch::LaunchResult,
         lifecycle::ManagedApplication,
         provider::{ProviderDefinition, ProviderId},
         runtime::RuntimeSettings,
+        ResourceSnapshot,
     },
     manager::AppLifecycleManager,
 };
@@ -88,7 +90,7 @@ pub fn discover_all_providers(
 pub fn launch_provider(
     provider_id: String,
     manager: State<Arc<AppLifecycleManager>>,
-) -> Result<ManagedApplication, String> {
+) -> Result<LaunchResult, String> {
     let id: ProviderId = provider_id
         .parse()
         .map_err(|e: RuntimeError| e.to_string())?;
@@ -115,4 +117,24 @@ pub fn switch_provider(
         .parse()
         .map_err(|e: RuntimeError| e.to_string())?;
     manager.switch_provider(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_system_resources(
+    manager: State<Arc<AppLifecycleManager>>,
+) -> Result<ResourceSnapshot, String> {
+    manager.get_system_resources().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn reconcile_provider_states(
+    manager: State<Arc<AppLifecycleManager>>,
+) -> Result<std::collections::HashMap<String, ManagedApplication>, String> {
+    let states = manager
+        .reconcile_provider_states()
+        .map_err(|e| e.to_string())?;
+    Ok(states
+        .into_iter()
+        .map(|(k, v)| (k.as_str().to_string(), v))
+        .collect())
 }

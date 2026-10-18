@@ -1,9 +1,10 @@
 pub mod linux;
+pub mod memory;
 pub mod snap;
 pub mod traits;
 pub mod windows;
 
-pub use linux::LinuxRuntime;
+pub use linux::{LinuxRuntime, OsProcessLauncher, ProcessLauncher};
 pub use traits::RuntimePlatform;
 pub use windows::WindowsRuntime;
 
