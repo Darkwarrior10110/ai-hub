@@ -35,3 +35,6 @@ Thumbs.db
 .idea/
 *.swp
 *~
+
+# Local / Private workspace files
+/current-problem

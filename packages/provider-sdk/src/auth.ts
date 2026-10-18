@@ -1,7 +1,0 @@
-export enum AuthenticationStrategy {
-  OAUTH = 'OAUTH',
-  DEVICE_AUTHORIZATION = 'DEVICE_AUTHORIZATION',
-  API_KEY = 'API_KEY',
-  PROVIDER_SPECIFIC = 'PROVIDER_SPECIFIC',
-  NONE = 'NONE'
-}

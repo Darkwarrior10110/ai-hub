@@ -43,8 +43,9 @@ Operating System (Linux Debian/Parrot, Windows)
    - Safely interfaces with OS primitives (filesystem, `/proc`, process signals).
    - Validates all arguments and returns structured error types (`RuntimeError`).
 
-3. **Legacy Provider SDK (`packages/provider-sdk`)**:
-   - Isolated from the primary application gateway. Retained as optional protocol infrastructure without being a dependency of the core desktop gateway lifecycle engine.
+3. **Provider SDK (Retired)**:
+   - The initial prototype Provider SDK (`packages/provider-sdk`) and mock in-app adapters were retired following the Milestone 5.1 architecture audit.
+   - AI-Hub's desktop gateway model interacts directly with installed operating system desktop applications via native Tauri IPC (`apps/desktop/src/services/gateway.ts`), eliminating redundant in-app chat protocol abstractions.
 
 ---
 
